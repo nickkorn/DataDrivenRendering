@@ -1,25 +1,28 @@
-#pragma once
+#include "hydra_imgui.h"
+#include "hydra_lib.h"
 
-
-#include "imgui.h"
-#include "hydra_graphics.h"
 #include "ShaderCodeGenerator.h"
-
 #include "Lexer.h"
-
-#include <GL/glew.h>    // Needs to be initialized with glewInit() in user's code
 
 // Hydra Graphics Data
 static hydra::graphics::TextureHandle g_font_texture;
 static hydra::graphics::PipelineHandle g_imgui_pipeline;
 static hydra::graphics::BufferHandle g_vb, g_ib;
 static hydra::graphics::BufferHandle g_ui_cb;
-static hydra::graphics::ResourceListHandle g_ui_resource_list;
+static hydra::graphics::ResourceListLayoutHandle g_resource_layout;
 static size_t g_vb_size = 665536, g_ib_size = 665536;
 
+// Map to retrieve resource lists based on texture handle.
+struct TextureToResourceListMap {
+    hydra::graphics::ResourceHandle             key;
+    hydra::graphics::ResourceHandle             value;
+};
+
+TextureToResourceListMap*                       g_texture_to_resource_list = nullptr;
+
+
 // Functions
-bool hydra_Imgui_Init( hydra::graphics::Device& graphics_device )
-{
+bool hydra_Imgui_Init( hydra::graphics::Device& graphics_device ) {
     ImGuiIO& io = ImGui::GetIO();
     io.BackendRendererName = "Hydra_ImGui";
 
@@ -36,25 +39,30 @@ bool hydra_Imgui_Init( hydra::graphics::Device& graphics_device )
     // Store our identifier
     io.Fonts->TexID = (ImTextureID)&g_font_texture;
 
-    // Create shader
-    char* hfx_file_memory = ReadEntireFileIntoMemory( "..\\data\\ImGui.bhfx", nullptr );
-    char* pass = hfx::getPassMemory( hfx_file_memory, 0 );
-    hfx::ShaderEffectFile::PassHeader* pass_header = (hfx::ShaderEffectFile::PassHeader*)pass;
-    uint32_t shader_count = pass_header->num_shader_chunks;
-    ShaderCreation::Stage* shader_stages = new ShaderCreation::Stage[shader_count];
+    // Compile shader
+    hfx::compile_hfx( "..\\data\\ImGui.hfx", "..\\data\\", "ImGui.bhfx" );
 
+    // Create shader
+    hfx::ShaderEffectFile shader_effect_file;
+    hfx::init_shader_effect_file( shader_effect_file, "..\\data\\ImGui.bhfx" );
+
+    hfx::ShaderEffectFile::PassHeader* pass_header = hfx::get_pass( shader_effect_file, 0 );
+    uint32_t shader_count = pass_header->num_shader_chunks;
+
+    PipelineCreation pipeline_creation = {};
+
+    ShaderCreation& shader_creation = pipeline_creation.shaders;
     for ( uint16_t i = 0; i < shader_count; i++ ) {
-        hfx::getShaderCreation( shader_count, pass, i, &shader_stages[i] );
+        hfx::get_shader_creation( pass_header, i, &shader_creation.stages[i] );
     }
 
-    ShaderCreation shader_creation = {};
     shader_creation.name = "ImGui_Shader";
-    shader_creation.stages = shader_stages;
     shader_creation.stages_count = shader_count;
 
-    const hydra::graphics::ResourceListLayoutCreation::Binding* bindings = (const hydra::graphics::ResourceListLayoutCreation::Binding*)(pass + pass_header->resource_table_offset);
-    ResourceListLayoutCreation resource_layout_creation = { bindings, pass_header->num_resources };
-    ResourceListLayoutHandle resource_layout = graphics_device.create_resource_list_layout( resource_layout_creation );
+    uint8_t num_bindings = 0;
+    const hydra::graphics::ResourceListLayoutCreation::Binding* bindings = hfx::get_pass_layout_bindings( pass_header, 0, num_bindings );
+    ResourceListLayoutCreation resource_layout_creation = { bindings, num_bindings };
+    g_resource_layout = graphics_device.create_resource_list_layout( resource_layout_creation );
 
 
     // Create pipeline
@@ -65,9 +73,8 @@ bool hydra_Imgui_Init( hydra::graphics::Device& graphics_device )
                                             { 1, 0, 8, VertexComponentFormat::Float2},
                                             { 2, 0, 16, VertexComponentFormat::UByte4N } };
 
-    PipelineCreation pipeline_creation = {};
+    
     pipeline_creation.vertex_input = { 1, 3, &vertex_stream, vertex_attributes };
-    pipeline_creation.shaders = &shader_creation;
 
     pipeline_creation.depth_stencil.depth_enable = 0;
     pipeline_creation.depth_stencil.stencil_enable = 0;
@@ -78,15 +85,13 @@ bool hydra_Imgui_Init( hydra::graphics::Device& graphics_device )
     pipeline_creation.blend_state.blend_states[0].source_color = Blend::SrcAlpha;
     pipeline_creation.blend_state.blend_states[0].destination_color = Blend::InvSrcAlpha;
 
-    pipeline_creation.resource_layout = resource_layout;
+    pipeline_creation.resource_list_layout[0] = g_resource_layout;
+    pipeline_creation.num_active_layouts = 1;
 
     g_imgui_pipeline = graphics_device.create_pipeline( pipeline_creation );
 
     PipelineDescription pipeline_desc;
     graphics_device.query_pipeline( g_imgui_pipeline, pipeline_desc );
-
-    ShaderStateDescription shader_desc;
-    graphics_device.query_shader( pipeline_desc.shader, shader_desc );
 
     // Create constant buffer
     BufferCreation cb_creation = { BufferType::Constant, ResourceUsageType::Dynamic, 64, nullptr, "CB_ImGui" };
@@ -94,8 +99,12 @@ bool hydra_Imgui_Init( hydra::graphics::Device& graphics_device )
 
     // Create resource list
     ResourceListCreation::Resource rl_resources[] = { g_ui_cb.handle, g_font_texture.handle };
-    ResourceListCreation rl_creation = { pipeline_creation.resource_layout, rl_resources, 2 };
-    g_ui_resource_list = graphics_device.create_resource_list( rl_creation );
+    ResourceListCreation rl_creation = { pipeline_creation.resource_list_layout[0], rl_resources, 2 };
+    hydra::graphics::ResourceListHandle ui_resource_list = graphics_device.create_resource_list( rl_creation );
+
+    // Add resource list to the map
+    hash_map_set_default( g_texture_to_resource_list, k_invalid_handle );
+    hash_map_put( g_texture_to_resource_list, g_font_texture.handle, ui_resource_list.handle );
 
     // Create vertex and index buffers //////////////////////////////////////////
     BufferCreation vb_creation = { BufferType::Vertex, ResourceUsageType::Dynamic, g_vb_size, nullptr, "VB_ImGui" };
@@ -104,28 +113,35 @@ bool hydra_Imgui_Init( hydra::graphics::Device& graphics_device )
     BufferCreation ib_creation = { BufferType::Index, ResourceUsageType::Dynamic, g_ib_size, nullptr, "IB_ImGui" };
     g_ib = graphics_device.create_buffer( ib_creation );
 
+    hydra::hy_free( shader_effect_file.memory );
+
     return true;
 }
 
 void hydra_Imgui_Shutdown( hydra::graphics::Device& graphics_device ) {
-    
+
+    for ( size_t i = 0; i < hash_map_length( g_texture_to_resource_list); ++i ) {
+        hydra::graphics::ResourceHandle handle = g_texture_to_resource_list[i].value;
+        graphics_device.destroy_resource_list( { handle } );
+    }
+
     graphics_device.destroy_buffer( g_vb );
     graphics_device.destroy_buffer( g_ib );
     graphics_device.destroy_buffer( g_ui_cb );
+    graphics_device.destroy_resource_list_layout( g_resource_layout );
 
     graphics_device.destroy_pipeline( g_imgui_pipeline );
-    graphics_device.destroy_resource_list( g_ui_resource_list );
     graphics_device.destroy_texture( g_font_texture );
 }
 
 void hydra_Imgui_NewFrame() {
-    
+
 }
 
-// OpenGL3 Render function.
-// (this used to be set in io.RenderDrawListsFn and called by ImGui::Render(), but you can now call this directly from your main loop)
-// Note that this implementation is little overcomplicated because we are saving/setting up/restoring every OpenGL state explicitly, in order to be able to run within any OpenGL engine that doesn't do so.
-void hydra_Imgui_RenderDrawData( ImDrawData* draw_data, hydra::graphics::Device& gfx_device, hydra::graphics::CommandBuffer& commands )
+//
+// Create draw commands from ImGui draw data.
+//
+void hydra_imgui_collect_draw_data( ImDrawData* draw_data, hydra::graphics::Device& gfx_device, hydra::graphics::CommandBuffer& commands )
 {
     // Avoid rendering when minimized, scale coordinates for retina displays (screen coordinates != framebuffer coordinates)
     int fb_width = (int)(draw_data->DisplaySize.x * draw_data->FramebufferScale.x);
@@ -152,8 +168,7 @@ void hydra_Imgui_RenderDrawData( ImDrawData* draw_data, hydra::graphics::Device&
 
     using namespace hydra::graphics;
 
-    // Reset command buffer to write to it again
-    commands.reset();
+    commands.begin_submit( 2 );
 
     // Upload data
     ImDrawVert* vtx_dst = NULL;
@@ -162,7 +177,7 @@ void hydra_Imgui_RenderDrawData( ImDrawData* draw_data, hydra::graphics::Device&
     MapBufferParameters map_parameters_vb = { g_vb, 0, vertex_size };
     vtx_dst = (ImDrawVert*)gfx_device.map_buffer( map_parameters_vb );
 
-    if( vtx_dst ) {
+    if ( vtx_dst ) {
         for ( int n = 0; n < draw_data->CmdListsCount; n++ ) {
 
             const ImDrawList* cmd_list = draw_data->CmdLists[n];
@@ -176,9 +191,9 @@ void hydra_Imgui_RenderDrawData( ImDrawData* draw_data, hydra::graphics::Device&
     MapBufferParameters map_parameters_ib = { g_ib, 0, index_size };
     idx_dst = (ImDrawIdx*)gfx_device.map_buffer( map_parameters_ib );
 
-    if ( idx_dst  ) {
+    if ( idx_dst ) {
         for ( int n = 0; n < draw_data->CmdListsCount; n++ ) {
-            
+
             const ImDrawList* cmd_list = draw_data->CmdLists[n];
             memcpy( idx_dst, cmd_list->IdxBuffer.Data, cmd_list->IdxBuffer.Size * sizeof( ImDrawIdx ) );
             idx_dst += cmd_list->IdxBuffer.Size;
@@ -191,7 +206,7 @@ void hydra_Imgui_RenderDrawData( ImDrawData* draw_data, hydra::graphics::Device&
     commands.bind_vertex_buffer( g_vb );
     commands.bind_index_buffer( g_ib );
 
-    const Viewport viewport = { 0, 0, (GLsizei)fb_width, (GLsizei)fb_height, 0.0f, 1.0f };
+    const Viewport viewport = { 0, 0, (float)fb_width, (float)fb_height, 0.0f, 1.0f };
     commands.set_viewport( viewport );
 
     // Setup viewport, orthographic projection matrix
@@ -209,9 +224,9 @@ void hydra_Imgui_RenderDrawData( ImDrawData* draw_data, hydra::graphics::Device&
     };
 
     MapBufferParameters cb_map = { g_ui_cb, 0, 0 };
-    GLfloat* cb_data = (GLfloat*)gfx_device.map_buffer( cb_map );
+    float* cb_data = (float*)gfx_device.map_buffer( cb_map );
     if ( cb_data ) {
-        memcpy(cb_data, &ortho_projection[0][0], 64);
+        memcpy( cb_data, &ortho_projection[0][0], 64 );
         gfx_device.unmap_buffer( cb_map );
     }
 
@@ -219,17 +234,20 @@ void hydra_Imgui_RenderDrawData( ImDrawData* draw_data, hydra::graphics::Device&
     ImVec2 clip_off = draw_data->DisplayPos;         // (0,0) unless using multi-viewports
     ImVec2 clip_scale = draw_data->FramebufferScale; // (1,1) unless using retina display which are often (2,2)
 
-    commands.bind_resource_list( g_ui_resource_list );
-
     // Render command lists
     //
     int counts = draw_data->CmdListsCount;
+
+    TextureHandle last_texture = g_font_texture;
+    ResourceListHandle last_resource_list = { hash_map_get( g_texture_to_resource_list, last_texture.handle ) };
+
+    commands.bind_resource_list( &last_resource_list, 1 );
 
     size_t vtx_buffer_offset = 0, idx_buffer_offset = 0;
     for ( int n = 0; n < counts; n++ )
     {
         const ImDrawList* cmd_list = draw_data->CmdLists[n];
-        
+
         for ( int cmd_i = 0; cmd_i < cmd_list->CmdBuffer.Size; cmd_i++ )
         {
             const ImDrawCmd* pcmd = &cmd_list->CmdBuffer[cmd_i];
@@ -259,11 +277,24 @@ void hydra_Imgui_RenderDrawData( ImDrawData* draw_data, hydra::graphics::Device&
                         commands.set_scissor( scissor_rect );
                     }
 
-                    // TODO: solution for custom textures.
-                    //glBindTextureUnit( 0, (GLuint)(intptr_t)pcmd->TextureId );
+                    // Retrieve 
+                    TextureHandle new_texture = *( TextureHandle* )(pcmd->TextureId);
+                    if ( new_texture.handle != last_texture.handle ) {
+                        last_texture = new_texture;
+                        last_resource_list.handle = hash_map_get( g_texture_to_resource_list, last_texture.handle );
 
-                    const GLuint start_index_offset = idx_buffer_offset * sizeof( ImDrawIdx );
-                    const GLuint end_index_offset = start_index_offset + pcmd->ElemCount * sizeof( ImDrawIdx );
+                        if ( last_resource_list.handle == k_invalid_handle ) {
+                            // Create
+                            ResourceListCreation::Resource rl_resources[] = { g_ui_cb.handle, last_texture.handle };
+                            ResourceListCreation rl_creation = { g_resource_layout, rl_resources, 2 };
+                            last_resource_list = gfx_device.create_resource_list( rl_creation );
+                            hash_map_put( g_texture_to_resource_list, new_texture.handle, last_resource_list.handle );
+                        }
+                        commands.bind_resource_list( &last_resource_list, 1 );
+                    }
+
+                    const uint32_t start_index_offset = idx_buffer_offset * sizeof( ImDrawIdx );
+                    const uint32_t end_index_offset = start_index_offset + pcmd->ElemCount * sizeof( ImDrawIdx );
                     commands.drawIndexed( hydra::graphics::TopologyType::Triangle, pcmd->ElemCount, 1, idx_buffer_offset, vtx_buffer_offset, 0 );
                 }
             }
@@ -272,4 +303,6 @@ void hydra_Imgui_RenderDrawData( ImDrawData* draw_data, hydra::graphics::Device&
 
         vtx_buffer_offset += cmd_list->VtxBuffer.Size;
     }
+
+    commands.end_submit();
 }

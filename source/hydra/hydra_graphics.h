@@ -2,27 +2,22 @@
 
 #include <stdint.h>
 
-/////////////////////////////////////////////////////////////////////////////////
-//  
-//  Hydra Graphics: 3D API wrapper around Vulkan/Direct3D12/OpenGL.
 //
-//  Mostly based on the amazing Sokol library (https://github.com/floooh/sokol),
-//  but with a different target (wrapping Vulkan/Direct3D12).
+//  Hydra Graphics - v0.042
+//  3D API wrapper around Vulkan/Direct3D12/OpenGL.
+//  Mostly based on the amazing Sokol library (https://github.com/floooh/sokol), but with a different target (wrapping Vulkan/Direct3D12).
 //
-//  Source code     : https://www.github.com/jorenjoestar/HydraGraphics
+//      Source code     : https://www.github.com/jorenjoestar/
 //
-//  Created         : 22/05/2019, 18.50
-//  Last Modified   : 14/09/2019, 16.10
-//  Version         : 0.04
+//      Created         : 22/05/2019, 18.50
+//      Last Modified   : 09/10/2019, 18.42
+//      Version         : 0.042
 //
-/////////////////////////////////////////////////////////////////////////////////
 //
-//      GUIDE
+// Documentation /////////////////////////
 //
 //  To choose the different rendering backend, define one of the following:
 //
-//  #define HYDRA_VULKAN
-//  #define HYDRA_D3D12
 //  #define HYDRA_OPENGL
 //
 //  The API is divided in two sections: resource handling and rendering.
@@ -31,12 +26,12 @@
 //  hydra::gfx_device::CommandBuffer      -- commands for rendering, compute and copy/transfer
 //
 //
-//      USAGE
+// Usage /////////////////////////////////
 //
 //  1. Define hydra::gfx_device::Device in your code.
 //  2. call device.init();
 //
-//      DEFINES
+// Defines ///////////////////////////////
 //
 //  Different defines can be used to use custom code:
 //
@@ -46,30 +41,42 @@
 //  HYDRA_ASSERT( condition, message, ... )
 //
 //
-//      CODE PHILOSOPHY
+// Code Philosophy ////////////////////////
 //
 //  1. Create healthy defaults for each struct.
 //  2. init/terminate initialize or terminate a class/struct.
 //  3. Create/Destroy are used for actual creation/destruction of resources.
 //
 //
-//      GSTODO
+// Todo //////////////////////////////////
 //
-//  * Add vertex input creation
-//  * Add ImGui related class
+//
+// Changelist ////////////////////////////
+//
+//      0.042: + Added initial support for render passes creation. + Added begin/end render pass commands interface.
+
 
 //////////////////////////////////
-//// Api selection
+// Api selection
 
+// Define these either here or in project.
 //#define HYDRA_VULKAN
 //#define HYDRA_D3D12
-#define HYDRA_OPENGL
+//#define HYDRA_OPENGL
 
 //////////////////////////////////
 // Window management selection
 
 //#define HYDRA_SDL
 //#define HYDRA_GLFW
+
+// Disable some warnings
+#ifdef _MSC_VER
+#pragma warning (disable: 4505)     // unreference function removed
+#pragma warning (disable: 4100)
+#endif // _MSC_VER
+
+
 
 // API includes
 #if defined (HYDRA_OPENGL)
@@ -118,6 +125,9 @@ struct PipelineHandle {
     ResourceHandle                  handle;
 }; // struct PipelineHandle
 
+struct RenderPassHandle {
+	ResourceHandle                  handle;
+}; // struct RenderPassHandle
 
 // Enums ////////////////////////////////////////////////////////////////////////
 
@@ -287,11 +297,11 @@ namespace StencilOperation {
 
 namespace TextureFormat {
     enum Enum {
-        UNKNOWN, R32G32B32A32_TYPELESS, R32G32B32A32_FLOAT, R32G32B32A32_UINT, R32G32B32A32_SINT, R32G32B32_TYPELESS, R32G32B32_FLOAT, R32G32B32_UINT, R32G32B32_SINT, R16G16B16A16_TYPELESS, R16G16B16A16_FLOAT, R16G16B16A16_UNORM, R16G16B16A16_UINT, R16G16B16A16_SNORM, R16G16B16A16_SINT, R32G32_TYPELESS, R32G32_FLOAT, R32G32_UINT, R32G32_SINT, R10G10B10A2_TYPELESS, R10G10B10A2_UNORM, R10G10B10A2_UINT, R11G11B10_FLOAT, R8G8B8A8_TYPELESS, R8G8B8A8_UNORM, R8G8B8A8_UNORM_SRGB, R8G8B8A8_UINT, R8G8B8A8_SNORM, R8G8B8A8_SINT, R16G16_TYPELESS, R16G16_FLOAT, R16G16_UNORM, R16G16_UINT, R16G16_SNORM, R16G16_SINT, R32_TYPELESS, R32_FLOAT, R32_UINT, R32_SINT, R8G8_TYPELESS, R8G8_UNORM, R8G8_UINT, R8G8_SNORM, R8G8_SINT, R16_TYPELESS, R16_FLOAT, R16_UNORM, R16_UINT, R16_SNORM, R16_SINT, R8_TYPELESS, R8_UNORM, R8_UINT, R8_SNORM, R8_SINT, R9G9B9E5_SHAREDEXP, D32_FLOAT_S8X24_UINT, D32_FLOAT, D24_UNORM_S8_UINT, D24_UNORM_X8_UINT, D16_UNORM, S8_UINT, BC1_TYPELESS, BC1_UNORM, BC1_UNORM_SRGB, BC2_TYPELESS, BC2_UNORM, BC2_UNORM_SRGB, BC3_TYPELESS, BC3_UNORM, BC3_UNORM_SRGB, BC4_TYPELESS, BC4_UNORM, BC4_SNORM, BC5_TYPELESS, BC5_UNORM, BC5_SNORM, B5G6R5_UNORM, B5G5R5A1_UNORM, B8G8R8A8_UNORM, B8G8R8X8_UNORM, R10G10B10_XR_BIAS_A2_UNORM, B8G8R8A8_TYPELESS, B8G8R8A8_UNORM_SRGB, B8G8R8X8_TYPELESS, B8G8R8X8_UNORM_SRGB, BC6H_TYPELESS, BC6H_UF16, BC6H_SF16, BC7_TYPELESS, BC7_UNORM, BC7_UNORM_SRGB, FORCE_UINT, Count
+        UNKNOWN, R32G32B32A32_TYPELESS, R32G32B32A32_FLOAT, R32G32B32A32_UINT, R32G32B32A32_SINT, R32G32B32_TYPELESS, R32G32B32_FLOAT, R32G32B32_UINT, R32G32B32_SINT, R16G16B16A16_TYPELESS, R16G16B16A16_FLOAT, R16G16B16A16_UNORM, R16G16B16A16_UINT, R16G16B16A16_SNORM, R16G16B16A16_SINT, R32G32_TYPELESS, R32G32_FLOAT, R32G32_UINT, R32G32_SINT, R10G10B10A2_TYPELESS, R10G10B10A2_UNORM, R10G10B10A2_UINT, R11G11B10_FLOAT, R8G8B8A8_TYPELESS, R8G8B8A8_UNORM, R8G8B8A8_UNORM_SRGB, R8G8B8A8_UINT, R8G8B8A8_SNORM, R8G8B8A8_SINT, R16G16_TYPELESS, R16G16_FLOAT, R16G16_UNORM, R16G16_UINT, R16G16_SNORM, R16G16_SINT, R32_TYPELESS, R32_FLOAT, R32_UINT, R32_SINT, R8G8_TYPELESS, R8G8_UNORM, R8G8_UINT, R8G8_SNORM, R8G8_SINT, R16_TYPELESS, R16_FLOAT, R16_UNORM, R16_UINT, R16_SNORM, R16_SINT, R8_TYPELESS, R8_UNORM, R8_UINT, R8_SNORM, R8_SINT, R9G9B9E5_SHAREDEXP, D32_FLOAT_S8X24_UINT, D24_UNORM_S8_UINT, D32_FLOAT, D24_UNORM_X8_UINT, D16_UNORM, S8_UINT, BC1_TYPELESS, BC1_UNORM, BC1_UNORM_SRGB, BC2_TYPELESS, BC2_UNORM, BC2_UNORM_SRGB, BC3_TYPELESS, BC3_UNORM, BC3_UNORM_SRGB, BC4_TYPELESS, BC4_UNORM, BC4_SNORM, BC5_TYPELESS, BC5_UNORM, BC5_SNORM, B5G6R5_UNORM, B5G5R5A1_UNORM, B8G8R8A8_UNORM, B8G8R8X8_UNORM, R10G10B10_XR_BIAS_A2_UNORM, B8G8R8A8_TYPELESS, B8G8R8A8_UNORM_SRGB, B8G8R8X8_TYPELESS, B8G8R8X8_UNORM_SRGB, BC6H_TYPELESS, BC6H_UF16, BC6H_SF16, BC7_TYPELESS, BC7_UNORM, BC7_UNORM_SRGB, FORCE_UINT, Count
     };
 
     static const char* s_value_names[] = {
-        "UNKNOWN", "R32G32B32A32_TYPELESS", "R32G32B32A32_FLOAT", "R32G32B32A32_UINT", "R32G32B32A32_SINT", "R32G32B32_TYPELESS", "R32G32B32_FLOAT", "R32G32B32_UINT", "R32G32B32_SINT", "R16G16B16A16_TYPELESS", "R16G16B16A16_FLOAT", "R16G16B16A16_UNORM", "R16G16B16A16_UINT", "R16G16B16A16_SNORM", "R16G16B16A16_SINT", "R32G32_TYPELESS", "R32G32_FLOAT", "R32G32_UINT", "R32G32_SINT", "R10G10B10A2_TYPELESS", "R10G10B10A2_UNORM", "R10G10B10A2_UINT", "R11G11B10_FLOAT", "R8G8B8A8_TYPELESS", "R8G8B8A8_UNORM", "R8G8B8A8_UNORM_SRGB", "R8G8B8A8_UINT", "R8G8B8A8_SNORM", "R8G8B8A8_SINT", "R16G16_TYPELESS", "R16G16_FLOAT", "R16G16_UNORM", "R16G16_UINT", "R16G16_SNORM", "R16G16_SINT", "R32_TYPELESS", "R32_FLOAT", "R32_UINT", "R32_SINT", "R8G8_TYPELESS", "R8G8_UNORM", "R8G8_UINT", "R8G8_SNORM", "R8G8_SINT", "R16_TYPELESS", "R16_FLOAT", "R16_UNORM", "R16_UINT", "R16_SNORM", "R16_SINT", "R8_TYPELESS", "R8_UNORM", "R8_UINT", "R8_SNORM", "R8_SINT", "R9G9B9E5_SHAREDEXP", "D32_FLOAT_S8X24_UINT", "D32_FLOAT", "D24_UNORM_S8_UINT", "D24_UNORM_X8_UINT", "D16_UNORM", "S8_UINT", "BC1_TYPELESS", "BC1_UNORM", "BC1_UNORM_SRGB", "BC2_TYPELESS", "BC2_UNORM", "BC2_UNORM_SRGB", "BC3_TYPELESS", "BC3_UNORM", "BC3_UNORM_SRGB", "BC4_TYPELESS", "BC4_UNORM", "BC4_SNORM", "BC5_TYPELESS", "BC5_UNORM", "BC5_SNORM", "B5G6R5_UNORM", "B5G5R5A1_UNORM", "B8G8R8A8_UNORM", "B8G8R8X8_UNORM", "R10G10B10_XR_BIAS_A2_UNORM", "B8G8R8A8_TYPELESS", "B8G8R8A8_UNORM_SRGB", "B8G8R8X8_TYPELESS", "B8G8R8X8_UNORM_SRGB", "BC6H_TYPELESS", "BC6H_UF16", "BC6H_SF16", "BC7_TYPELESS", "BC7_UNORM", "BC7_UNORM_SRGB", "FORCE_UINT", "Count"
+        "UNKNOWN", "R32G32B32A32_TYPELESS", "R32G32B32A32_FLOAT", "R32G32B32A32_UINT", "R32G32B32A32_SINT", "R32G32B32_TYPELESS", "R32G32B32_FLOAT", "R32G32B32_UINT", "R32G32B32_SINT", "R16G16B16A16_TYPELESS", "R16G16B16A16_FLOAT", "R16G16B16A16_UNORM", "R16G16B16A16_UINT", "R16G16B16A16_SNORM", "R16G16B16A16_SINT", "R32G32_TYPELESS", "R32G32_FLOAT", "R32G32_UINT", "R32G32_SINT", "R10G10B10A2_TYPELESS", "R10G10B10A2_UNORM", "R10G10B10A2_UINT", "R11G11B10_FLOAT", "R8G8B8A8_TYPELESS", "R8G8B8A8_UNORM", "R8G8B8A8_UNORM_SRGB", "R8G8B8A8_UINT", "R8G8B8A8_SNORM", "R8G8B8A8_SINT", "R16G16_TYPELESS", "R16G16_FLOAT", "R16G16_UNORM", "R16G16_UINT", "R16G16_SNORM", "R16G16_SINT", "R32_TYPELESS", "R32_FLOAT", "R32_UINT", "R32_SINT", "R8G8_TYPELESS", "R8G8_UNORM", "R8G8_UINT", "R8G8_SNORM", "R8G8_SINT", "R16_TYPELESS", "R16_FLOAT", "R16_UNORM", "R16_UINT", "R16_SNORM", "R16_SINT", "R8_TYPELESS", "R8_UNORM", "R8_UINT", "R8_SNORM", "R8_SINT", "R9G9B9E5_SHAREDEXP", "D32_FLOAT_S8X24_UINT", "D24_UNORM_S8_UINT", "D32_FLOAT", "D24_UNORM_X8_UINT", "D16_UNORM", "S8_UINT", "BC1_TYPELESS", "BC1_UNORM", "BC1_UNORM_SRGB", "BC2_TYPELESS", "BC2_UNORM", "BC2_UNORM_SRGB", "BC3_TYPELESS", "BC3_UNORM", "BC3_UNORM_SRGB", "BC4_TYPELESS", "BC4_UNORM", "BC4_SNORM", "BC5_TYPELESS", "BC5_UNORM", "BC5_SNORM", "B5G6R5_UNORM", "B5G5R5A1_UNORM", "B8G8R8A8_UNORM", "B8G8R8X8_UNORM", "R10G10B10_XR_BIAS_A2_UNORM", "B8G8R8A8_TYPELESS", "B8G8R8A8_UNORM_SRGB", "B8G8R8X8_TYPELESS", "B8G8R8X8_UNORM_SRGB", "BC6H_TYPELESS", "BC6H_UF16", "BC6H_SF16", "BC7_TYPELESS", "BC7_UNORM", "BC7_UNORM_SRGB", "FORCE_UINT", "Count"
     };
 
     static const char* ToString( Enum e ) {
@@ -535,11 +545,11 @@ namespace QueueType {
 
 namespace CommandType {
     enum Enum {
-        BindPipeline, BindResourceTable, BindVertexBuffer, BindIndexBuffer, BindResourceSet, Draw, DrawIndexed, DrawInstanced, DrawIndexedInstanced, Dispatch, CopyResource, SetScissor, SetViewport, Count
+        BindPipeline, BindResourceTable, BindVertexBuffer, BindIndexBuffer, BindResourceSet, Draw, DrawIndexed, DrawInstanced, DrawIndexedInstanced, Dispatch, CopyResource, SetScissor, SetViewport, Clear, BeginPass, EndPass, Count
     };
 
     static const char* s_value_names[] = {
-        "BindPipeline", "BindResourceTable", "BindVertexBuffer", "BindIndexBuffer", "BindResourceSet", "Draw", "DrawIndexed", "DrawInstanced", "DrawIndexedInstanced", "Dispatch", "CopyResource", "SetScissor", "SetViewport", "Count"
+        "BindPipeline", "BindResourceTable", "BindVertexBuffer", "BindIndexBuffer", "BindResourceSet", "Draw", "DrawIndexed", "DrawInstanced", "DrawIndexedInstanced", "Dispatch", "CopyResource", "SetScissor", "SetViewport", "Clear", "BeginPass", "EndPass", "Count"
     };
 
     static const char* ToString( Enum e ) {
@@ -571,6 +581,15 @@ enum DeviceExtensions {
 };
 
 // TODO: Error enum?
+
+// Consts ///////////////////////////////////////////////////////////////////////
+
+static const uint8_t                k_max_image_outputs         = 8;        // Maximum number of images/render_targets/fbo attachments usable.
+static const uint8_t                k_max_resource_layouts      = 8;        // Maximum number of layouts in the pipeline.
+static const uint8_t                k_max_shader_stages         = 5;
+
+static const uint32_t               k_submit_header_sentinel    = 0xfefeb7ba;
+static const uint32_t               k_invalid_handle = 0xffffffff;
 
 // Resource creation structs ////////////////////////////////////////////////////
 
@@ -656,10 +675,10 @@ struct BlendState {
 }; // struct BlendState
 
 struct BlendStateCreation {
-    static const uint32_t           k_max_states        = 8;
 
-    BlendState                      blend_states[k_max_states];
+    BlendState                      blend_states[k_max_image_outputs];
     uint32_t                        active_states       = 0;
+
 }; // BlendStateCreation
 
 //
@@ -676,13 +695,7 @@ struct RasterizationCreation {
 struct DeviceCreation {
 
     void*                           window              = nullptr; // Pointer to API-specific window: SDL_Window, GLFWWindow
-
-    uint64_t                        extensions_mask     = 0;
-
-    // Vulkan specific parameters
-    // TODO: add them as flags ?
-    const char**                    extensions          = nullptr;
-    uint32_t                        extensions_count    = 0;
+    bool                            debug               = false;
 
 }; // struct DeviceCreation
 
@@ -712,6 +725,8 @@ struct TextureCreation {
     TextureFormat::Enum             format              = TextureFormat::UNKNOWN;
     TextureType::Enum               type                = TextureType::Texture2D;
 
+    const char*                     name                = nullptr;
+
 }; // struct TextureCreation
 
 //
@@ -739,7 +754,8 @@ struct ShaderCreation {
 
     }; // struct Stage
 
-    const Stage*                    stages              = nullptr;
+    Stage                           stages[k_max_shader_stages];
+
     const char*                     name                = nullptr;
 
     uint32_t                        stages_count        = 0;
@@ -810,32 +826,69 @@ struct VertexStream {
 //
 struct VertexInputCreation {
 
-    uint32_t                        num_vertex_streams;
-    uint32_t                        num_vertex_attributes;
+    uint32_t                        num_vertex_streams	= 0;
+    uint32_t                        num_vertex_attributes = 0;
 
-    const VertexStream*             vertex_streams;
-    const VertexAttribute*          vertex_attributes;
+    const VertexStream*             vertex_streams		= nullptr;
+    const VertexAttribute*          vertex_attributes	= nullptr;
 }; // struct VertexInputCreation
+
+//
+//
+struct ShaderBinding {
+
+    const char*                     binding_name        = nullptr;
+    const char*                     resource_name       = nullptr;
+
+}; // struct ShaderBinding 
+
+//
+//
+struct RenderPassCreation {
+
+	uint16_t						num_render_targets  = 0;
+    uint8_t                         is_swapchain        = false;
+    uint8_t                         is_compute_post     = false;                // This is set to determine if the post-process pass is compute or not.
+
+    TextureHandle*   			    output_textures;
+    TextureHandle				    depth_stencil_texture;
+
+}; // struct RenderPassCreation
 
 //
 //
 struct PipelineCreation {
 
-    const ShaderCreation*           shaders             = nullptr;
-    const ViewportState*            viewport            = nullptr;
-
+    ShaderCreation                  shaders;
     DepthStencilCreation            depth_stencil;
     BlendStateCreation              blend_state;
     VertexInputCreation             vertex_input;
     RasterizationCreation           rasterization;
 
-    ResourceListLayoutHandle        resource_layout;
+    ResourceListLayoutHandle        resource_list_layout[k_max_resource_layouts];
+    const ViewportState*            viewport            = nullptr;
+
+    uint32_t                        num_active_layouts  = 0;
 
     bool                            compute             = false;
 
 }; // struct PipelineCreation
 
 // API-agnostic structs /////////////////////////////////////////////////////////
+
+//
+// Helper methods for texture formats
+//
+namespace TextureFormat {
+
+    inline bool                     is_depth_stencil( Enum value )      { return value == D32_FLOAT_S8X24_UINT || value == D24_UNORM_S8_UINT; }
+    inline bool                     is_only_depth( Enum value )         { return value >= D32_FLOAT && value < S8_UINT; }
+    inline bool                     is_onlye_stencil( Enum value )      { return value == S8_UINT; }
+
+    inline bool                     has_depth( Enum value )             { return value >= D32_FLOAT && value < S8_UINT; }
+    inline bool                     has_stencil( Enum value )           { return value == D32_FLOAT_S8X24_UINT || value == D24_UNORM_S8_UINT || value == S8_UINT; }
+
+} // namespace TextureFormat
 
 struct ResourceData {
 
@@ -910,12 +963,14 @@ struct SamplerDescription {
 
 }; // struct Sampler
 
+static const uint32_t               k_max_resources_per_list = 32;
+
 //
 //
 struct ResourceListLayoutDescription {
 
-    ResourceBinding*                bindings            = nullptr;
-    uint32_t                        num_bindings        = 0;
+    ResourceBinding                 bindings[k_max_resources_per_list];
+    uint32_t                        num_active_bindings = 0;
 
 }; // struct ResourceListLayoutDescription
 
@@ -923,8 +978,8 @@ struct ResourceListLayoutDescription {
 //
 struct ResourceListDescription {
 
-    ResourceData*                   resources           = nullptr;
-    uint32_t                        num_resources       = 0;
+    ResourceData                    resources[k_max_resources_per_list];
+    uint32_t                        num_active_resources = 0;
 
 }; // struct ResourceListDescription
 
@@ -959,8 +1014,11 @@ struct SamplerGL;
 struct ResourceListLayoutGL;
 struct ResourceListGL;
 struct DeviceStateGL;
+struct RenderPassGL;
 
 #elif defined (HYDRA_VULKAN)
+
+
 #endif // HYDRA_OPENGL
 
 
@@ -1004,38 +1062,46 @@ struct Device {
     SamplerHandle                   create_sampler( const SamplerCreation& creation );
     ResourceListLayoutHandle        create_resource_list_layout( const ResourceListLayoutCreation& creation );
     ResourceListHandle              create_resource_list( const ResourceListCreation& creation );
-    ShaderHandle                    create_shader( const ShaderCreation& creation );
-
+    RenderPassHandle				create_render_pass( const RenderPassCreation& creation );
 
     void                            destroy_buffer( BufferHandle buffer );
     void                            destroy_texture( TextureHandle texture );
     void                            destroy_pipeline( PipelineHandle pipeline );
     void                            destroy_sampler( SamplerHandle sampler );
     void                            destroy_resource_list_layout( ResourceListLayoutHandle resource_layout );
-    void                            destroy_resource_list( ResourceListHandle resource_set );
-    void                            destroy_shader( ShaderHandle shader );
+    void                            destroy_resource_list( ResourceListHandle resource_list );
+    void                            destroy_render_pass( RenderPassHandle render_pass );
 
     // Query Description ////////////////////////////////////////////////////////
     void                            query_buffer( BufferHandle buffer, BufferDescription& out_description );
     void                            query_texture( TextureHandle texture, TextureDescription& out_description );
-    void                            query_shader( ShaderHandle shader, ShaderStateDescription& out_description );
     void                            query_pipeline( PipelineHandle pipeline, PipelineDescription& out_description );
     void                            query_sampler( SamplerHandle sampler, SamplerDescription& out_description );
-    void                            query_resource_list_layout( ResourceListLayoutHandle resource_layout );
-    void                            query_resource_list( ResourceListHandle resource_set );
+    void                            query_resource_list_layout( ResourceListLayoutHandle resource_layout, ResourceListLayoutDescription& out_description );
+    void                            query_resource_list( ResourceListHandle resource_list, ResourceListDescription& out_description );
 
     // Map/Unmap ////////////////////////////////////////////////////////////////
     void*                           map_buffer( const MapBufferParameters& parameters );
     void                            unmap_buffer( const MapBufferParameters& parameters );
 
     // Command Buffers //////////////////////////////////////////////////////////
-    CommandBuffer*                  get_command_buffer( QueueType::Enum type, uint32_t size );
-    void                            execute_command_buffer( CommandBuffer* command_buffer );
+    CommandBuffer*                  create_command_buffer( QueueType::Enum type, uint32_t size, bool baked );    // Request a command buffer with a certain size. If baked reset will affect only the read offset.
+    void                            destroy_command_buffer( CommandBuffer* command_buffer );
+
+    void                            queue_command_buffer( CommandBuffer* command_buffer );          // Queue command buffer that will not be executed until present is called.
 
     // Rendering ////////////////////////////////////////////////////////////////
     void                            present();
 
-    BufferHandle                    get_fullscreen_vertex_buffer() const;
+    void                            resize( uint16_t width, uint16_t height );
+
+    void                            resize_output_textures( RenderPassHandle render_pass, uint16_t width, uint16_t height );
+
+    BufferHandle                    get_fullscreen_vertex_buffer() const;           // Returns a vertex buffer usable for fullscreen shaders that uses no vertices.
+    RenderPassHandle                get_swapchain_pass() const;                     // Returns what is considered the final pass that writes to the swapchain.
+
+    TextureHandle                   get_dummy_texture() const;
+    BufferHandle                    get_dummy_constant_buffer() const;
 
     // Internals ////////////////////////////////////////////////////////////////
     void                            backend_init( const DeviceCreation& creation );
@@ -1048,11 +1114,27 @@ struct Device {
     ResourcePool                    samplers;
     ResourcePool                    resource_list_layouts;
     ResourcePool                    resource_lists;
+	ResourcePool                    render_passes;
 
     // Primitive resources
     BufferHandle                    fullscreen_vertex_buffer;
+    RenderPassHandle                swapchain_pass;
+    // Dummy resources
+    TextureHandle                   dummy_texture;
+    BufferHandle                    dummy_constant_buffer;
+
+    CommandBuffer**                 queued_command_buffers              = nullptr;
+    uint32_t                        num_queued_command_buffers          = 0;
+
+    uint16_t                        swapchain_width                     = 1;
+    uint16_t                        swapchain_height                    = 1;
     
 #if defined (HYDRA_OPENGL)
+
+    // Shaders are considered resources in the OpenGL device!
+    ShaderHandle                    create_shader( const ShaderCreation& creation );
+    void                            destroy_shader( ShaderHandle shader );
+    void                            query_shader( ShaderHandle shader, ShaderStateDescription& out_description );
 
     ShaderStateGL*                  access_shader( ShaderHandle shader );
     const ShaderStateGL*            access_shader( ShaderHandle shader ) const;
@@ -1072,37 +1154,36 @@ struct Device {
     ResourceListLayoutGL*           access_resource_list_layout( ResourceListLayoutHandle resource_layout );
     const ResourceListLayoutGL*     access_resource_list_layout( ResourceListLayoutHandle resource_layout ) const;
 
-    ResourceListGL*                 access_resource_list( ResourceListHandle resource_set );
-    const ResourceListGL*           access_resource_list( ResourceListHandle resource_set ) const;
+    ResourceListGL*                 access_resource_list( ResourceListHandle resource_list );
+    const ResourceListGL*           access_resource_list( ResourceListHandle resource_list ) const;
+
+    RenderPassGL*                   access_render_pass( RenderPassHandle render_pass );
+    const RenderPassGL*             access_render_pass( RenderPassHandle render_pass ) const;
 
     DeviceStateGL*                  device_state            = nullptr;
 #elif defined (HYDRA_VULKAN)
     
 
-    VkAllocationCallbacks*          v_allocation_callbacks;
-    VkInstance                      v_instance;
-    VkPhysicalDevice                v_physical_device;
-    VkDevice                        v_device;
-    VkQueue                         v_queue;
-    uint32_t                        v_queue_family;
-    VkDescriptorPool                v_descriptor_pool;
-    VkSurfaceKHR                    v_window_surface;
-    VkSurfaceFormatKHR              v_surface_format;
-    VkPresentModeKHR                v_present_mode;
+    VkAllocationCallbacks*          vulkan_allocation_callbacks;
+    VkInstance                      vulkan_instance;
+    VkPhysicalDevice                vulkan_physical_device;
+    VkDevice                        vulkan_device;
+    VkQueue                         vulkan_queue;
+    uint32_t                        vulkan_queue_family;
+    VkDescriptorPool                vulkan_descriptor_pool;
+    VkSurfaceKHR                    vulkan_window_surface;
+    VkSurfaceFormatKHR              vulkan_surface_format;
+    VkPresentModeKHR                vulkan_present_mode;
 
-    VkDebugReportCallbackEXT        v_debug_callback;
+    VkDebugReportCallbackEXT        vulkan_debug_callback;
 #elif defined (HYDRA_OPENGL)
 #endif // HYDRA_VULKAN
 
 }; // struct Device
 
-//
-// Command buffer interface
-//
 
-//
-// Commands list
-//
+// Commands list ////////////////////////////////////////////////////////////////
+
 namespace commands {
 
     struct Command {
@@ -1118,9 +1199,24 @@ namespace commands {
 
     }; // struct BindPipeline
 
+    struct BeginPass : public Command {
+
+        RenderPassHandle                handle;
+
+        static uint16_t                 Type() { return CommandType::BeginPass; }
+
+    }; // struct BeginPass
+
+    struct EndPass : public Command {
+
+        static uint16_t                 Type() { return CommandType::EndPass; }
+
+    }; // struct EndPass
+
     struct BindResourceList : public Command {
 
-        ResourceListHandle               handle;
+        ResourceListHandle              handles[k_max_resource_layouts];
+        uint32_t                        num_lists;
 
         static uint16_t                 Type() { return CommandType::BindResourceSet; }
 
@@ -1182,9 +1278,9 @@ namespace commands {
 
     struct Dispatch : public Command {
 
-        uint8_t                         group_x;
-        uint8_t                         group_y;
-        uint8_t                         group_z;
+        uint16_t                        group_x;
+        uint16_t                        group_y;
+        uint16_t                        group_z;
 
         static uint16_t                 Type() { return CommandType::Dispatch; }
 
@@ -1212,27 +1308,62 @@ namespace commands {
 
     }; // struct SetScissor
 
+    struct Clear : public Command {
+
+        float                           clear_color[4];
+
+        static uint16_t                 Type() { return CommandType::Clear; }
+
+    }; // struct Clear
+
+    struct SubmitHeader {
+
+        uint32_t                        sentinel;
+        uint32_t                        data_size;
+    };
+
 } // namespace Commands
 
+// CommandBuffer ////////////////////////////////////////////////////////////////
 
+//
+//
+struct SubmitCommand {
+
+    uint64_t                        key;
+    uint8_t*                        data;
+
+}; // struct SubmitCommand
+
+//
+//
 struct CommandBuffer {
 
-    void                            init( QueueType::Enum type, uint32_t size );
+    void                            init( QueueType::Enum type, uint32_t buffer_size, uint32_t submit_size, bool baked );
+    void                            terminate();
 
     //
     // Commands interface
     //
+
+    void                            begin_pass( RenderPassHandle handle );
+    void                            end_pass();
+
+    void                            begin_submit( uint64_t sort_key );
+    void                            end_submit();
+
     void                            bind_pipeline( PipelineHandle handle );
     void                            bind_vertex_buffer( BufferHandle handle );
     void                            bind_index_buffer( BufferHandle handle );
-    void                            bind_resource_list( ResourceListHandle handle );
+    void                            bind_resource_list( ResourceListHandle* handles, uint32_t num_lists );
 
     void                            set_viewport( const Viewport& viewport );
     void                            set_scissor( const Rect2D& rect );
+    void                            clear( float red, float green, float blue, float alpha );
 
     void                            draw( TopologyType::Enum topology, uint32_t start, uint32_t count );
     void                            drawIndexed( TopologyType::Enum topology, uint32_t index_count, uint32_t instance_count, uint32_t first_index, int32_t vertex_offset, uint32_t first_instance );
-    void                            dispatch( uint8_t group_x, uint8_t group_y, uint8_t group_z );
+    void                            dispatch( uint32_t group_x, uint32_t group_y, uint32_t group_z );
 
     //
     // Internal interface
@@ -1251,10 +1382,14 @@ struct CommandBuffer {
 
 
     bool                            has_commands()      { return write_offset > 0; }
-    void                            rewind()            { read_offset = 0; }
     bool                            end_of_stream()     { return read_offset >= write_offset; }
-    void                            reset()             { write_offset = 0; read_offset = 0; }
+    void                            reset();
 
+    SubmitCommand                   current_submit_command;             // Cached submit command
+    commands::SubmitHeader*         current_submit_header = nullptr;
+    SubmitCommand*                  submit_commands     = nullptr;
+    uint32_t                        num_submits         = 0;
+    uint32_t                        max_submits         = 0;
 
     QueueType::Enum                 type                = QueueType::Graphics;
 
@@ -1263,7 +1398,19 @@ struct CommandBuffer {
     uint32_t                        write_offset        = 0;
     uint32_t                        buffer_size         = 0;
 
+    bool                            baked               = false;        // If baked reset will affect only the read of the commands.
+
 }; // struct CommandBuffer
+
+
+// RenderManager ////////////////////////////////////////////////////////////////
+
+struct RenderManager {
+
+    virtual void                    render( CommandBuffer* commands, Device& device ) = 0;
+
+    virtual void                    reload( Device& device ) = 0;
+};
 
 // Inlines //////////////////////////////////////////////////////////////////////
 
@@ -1275,7 +1422,7 @@ T* CommandBuffer::write_command() {
     command->size = sizeof( T );
 
     write_offset += sizeof( T );
-    //HYDRA_ASSERT( write_offset < buffer_size, "" );
+    //HYDRA_ASSERT( write_offset < buffer_size, "Command buffer overflow!" );
     return command;
 }
 
